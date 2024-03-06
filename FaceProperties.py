@@ -16,6 +16,7 @@ eye_cas = cv2.CascadeClassifier(r".\Assets\haarcascade_eye.xml")
 smile_cas = cv2.CascadeClassifier(r".\Assets\haarcascade_smile.xml")
 
 def check_color(imghsv):
+    # Hand made color checking
     blue_mask = cv2.inRange(imghsv, blue_lower, blue_upper)
     blue_px = np.sum(blue_mask != 0)
     brown_mask = cv2.inRange(imghsv, brown_lower, brown_upper)
@@ -31,8 +32,8 @@ def check_color(imghsv):
         return "Blue"
     return "Unknown"
 
-def find_color(requested_colour):  # finds the color name from RGB values
-
+def find_color(requested_colour):
+    # Finds the color name from RGB values based on webcolors lib
     min_colours = {}
     for name, key in webcolors.CSS3_HEX_TO_NAMES.items():
         r_c, g_c, b_c = webcolors.hex_to_rgb(name)
@@ -44,34 +45,43 @@ def find_color(requested_colour):  # finds the color name from RGB values
     return closest_name
 
 def detectimg():
+    # Test run on image
+
+    # Read image
     img = cv2.imread(r".\Assets\test6.jpg")
 
+    # Conversation to grayscale for the detection
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
 
+    # Detecting faces on image
     faces_rect = face_cas.detectMultiScale(
         gray, scaleFactor=1.3, minNeighbors=9)
 
+    # Overlay for the faces
     for (x1, y1, w1, h1) in faces_rect:
         cv2.rectangle(img, (x1, y1), (x1 + w1, y1 + h1), (0, 255, 0), thickness=2)
-
-        smile_rect = smile_cas.detectMultiScale(
-            gray[y1:y1 + w1, x1:x1 + h1], scaleFactor=1.8, minNeighbors=20)
         cv2.putText(img, "face", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0),
                     2)
 
+        # Detecting smiles on the faces
+        smile_rect = smile_cas.detectMultiScale(
+            gray[y1:y1 + w1, x1:x1 + h1], scaleFactor=1.8, minNeighbors=20)
+
+        # Overlay for smiles
         for (x2, y2, w2, h2) in smile_rect:
             cv2.rectangle(img, (x1 + x2, y1 + y2), (x1 + x2 + w2, y1 + y2 + h2), (255, 0, 0), thickness=2)
             cv2.putText(img, "smile", (x1 + x2, y1 + y2 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0),
                         2)
 
+    # Detection eyes
     eye_rect = eye_cas.detectMultiScale(
         gray, scaleFactor=1.3, minNeighbors=9)
 
+    # Overlay for eyes
     for (x, y, w, h) in eye_rect:
-        # Eye detect
         cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), thickness=2)
 
-        # Iris calc
+        # Iris rough calculation
         cx = x + w / 2
         cy = y + h / 2
         r = int((h + w) / 6)
@@ -82,56 +92,65 @@ def detectimg():
 
         # Iris mask apply
         img3 = cv2.bitwise_and(img, img, mask=iris_mask)
-        # cv2.imshow('Detected', img3)
-        # cv2.waitKey(0)
 
         # Color saturation boost
         imghsv = cv2.cvtColor(img3, cv2.COLOR_BGR2HSV)
         # imghsv[..., 1] = imghsv[..., 1] * 2
 
+        # Calculating eye color
         color_id = check_color(imghsv)
-
         img2 = cv2.cvtColor(imghsv, cv2.COLOR_HSV2BGR)
-
         mean = cv2.mean(img2, iris_mask)
         print(mean)
         color = find_color(mean)
         cv2.putText(img, color_id + " " + color, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (36, 255, 12),
                     2)
 
+    # Display
     cv2.imshow('Detected faces', img)
     cv2.waitKey(0)
     return
 
 def detectCam():
+    # Run on webcamera
+
+    # Connecting to the camera
     cam = cv2.VideoCapture(0)
     while True:
+        # Reading frames
         isNextFrameAvail, frame = cam.read()
         if not isNextFrameAvail:
             continue
+
+        # Converting frame to grayscale for the detection
         gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
 
+        # Face Detection
         faces_rect = face_cas.detectMultiScale(
             gray, scaleFactor=1.3, minNeighbors=9)
 
+        # Face overlay
         for (x1, y1, w1, h1) in faces_rect:
             cv2.rectangle(frame, (x1, y1), (x1 + w1, y1 + h1), (0, 255, 0), thickness=2)
-
-            smile_rect = smile_cas.detectMultiScale(
-                gray[y1:y1+w1,x1:x1+h1], scaleFactor=1.8, minNeighbors=20)
             cv2.putText(frame, "face", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0),
                         2)
 
+            # Smile Detection
+            smile_rect = smile_cas.detectMultiScale(
+                gray[y1:y1+w1,x1:x1+h1], scaleFactor=1.8, minNeighbors=20)
+
+            # Smile overlay
             for (x2, y2, w2, h2) in smile_rect:
                 cv2.rectangle(frame, (x1+x2, y1+y2), (x1+x2 + w2, y1+y2 + h2), (255, 0, 0), thickness=2)
                 cv2.putText(frame, "smile", (x1+x2, y1+y2 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0),
                             2)
 
+        # Eye detection
         eye_rect = eye_cas.detectMultiScale(
             gray, scaleFactor=1.3, minNeighbors=9)
 
+        # Eye overlay
         for (x, y, w, h) in eye_rect:
-            # Eye detect
             cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), thickness=2)
 
             # Iris calc
@@ -145,23 +164,21 @@ def detectCam():
 
             # Iris mask apply
             img3 = cv2.bitwise_and(frame, frame, mask=iris_mask)
-            #cv2.imshow('Detected', img3)
-            #cv2.waitKey(0)
 
             # Color saturation boost
             imghsv = cv2.cvtColor(img3, cv2.COLOR_BGR2HSV)
             #imghsv[..., 1] = imghsv[..., 1] * 2
 
+            # Calculating eye color
             color_id = check_color(imghsv)
-
             img2 = cv2.cvtColor(imghsv, cv2.COLOR_HSV2BGR)
-
             mean = cv2.mean(img2, iris_mask)
             print(mean)
             color = find_color(mean)
             cv2.putText(frame, color_id + " " + color, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (36, 255, 12),
                         2)
 
+        # Display
         cv2.imshow("PRESS Q TO EXIT", frame)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
